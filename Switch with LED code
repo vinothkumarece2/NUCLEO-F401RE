@@ -1,0 +1,48 @@
+#include <stdint.h>
+
+
+uint32_t *RCC_AHB1ENR        = (uint32_t*)0x40023830;
+uint32_t *GPIOB_MODER        = (uint32_t*)0x40020400;
+uint32_t *GPIOB_ODR        = (uint32_t*)0x40020414;
+uint32_t *GPIOB_IDR        = (uint32_t*)0x40020410;
+uint32_t *GPIOB_PUPDR       = (uint32_t*)0x4002040c;
+
+	void GPIO_init()
+	{
+	    // Enable clock for GPIOB
+	    *RCC_AHB1ENR |= (1 << 1);  // Enable GPIOB in AHB1ENR
+
+	    *GPIOB_MODER &= ~(3 << 2);  // Clear bits 3:2
+	    *GPIOB_MODER |=  (1 << 2);  // Set bit 2 (01 for output mode)
+
+	    // Set PB0 (button) as input => MODER[1:0] = 00
+	    *GPIOB_MODER &= ~(3 << 0);  // Clear bits 1:0
+
+	    *GPIOB_PUPDR &= ~(3 << 0);  // Clear bits
+	    *GPIOB_PUPDR |=  (1 << 0);  // Set pull-up (01)
+	}
+	void delay()
+		{
+			for(uint32_t i=0; i<=30000; i++);
+		}
+
+int main(void)
+{
+  GPIO_init();
+
+      while(1)
+      {
+    	  if((*GPIOB_IDR & (1 << 0))) // Check if PB0 is HIGH
+    	  {
+    		  *GPIOB_ODR ^= (1 << 1);  // Toggle LED
+    		             delay();
+
+    	  }
+    	  else
+    	  {
+    		  *GPIOB_ODR &= ~(1 << 1);
+    		   delay();
+    	  }
+
+      }
+}
