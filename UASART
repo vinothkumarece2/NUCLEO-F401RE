@@ -1,0 +1,77 @@
+#include <stdint.h>
+#include <stdio.h>
+
+// RCC Registers
+uint32_t *pAPB1ENR        = (uint32_t*)0x40023840;
+uint32_t *pAHB1ENR        = (uint32_t*)0x40023830;
+
+// GPIOA Registers
+uint32_t *pMODER_GPIOA    = (uint32_t*)0x40020000;
+uint32_t *pGPIOA_AFRL     = (uint32_t*)0x40020020;
+
+// USART2 Registers
+uint32_t *pUSART2_CR1     = (uint32_t*)0x4000440C;
+uint32_t *pUSART2_BRR     = (uint32_t*)0x40004408;
+uint32_t *pUSART2_DR      = (uint32_t*)0x40004404;
+uint32_t *pUSART2_SR      = (uint32_t*)0x40004400;
+
+void USART_init()
+{
+    // Enable clock for GPIOA
+    *pAHB1ENR |= (1 << 0);
+
+    // Enable clock for USART2
+    *pAPB1ENR |= (1 << 17);
+
+    // Set PA2 (TX) and PA3 (RX) to alternate function mode (MODER = 10)
+    *pMODER_GPIOA &= ~((1 << 4) | (1 << 6));  // Clear MODER bits for PA2, PA3
+    *pMODER_GPIOA |=  ((1 << 5) | (1 << 7));  // Set alternate function
+
+    // Set PA2 and PA3 to AF7 (USART2)
+    // PA2 = bits [11:8], PA3 = bits [15:12] in AFRL
+    *pGPIOA_AFRL &= ~(1<<11);     // Clear bits
+    *pGPIOA_AFRL |= ((1<<10) | (1 << 9));
+    *pGPIOA_AFRL |= (1<<8);
+
+    // Set AF7 (0111)
+
+    // Set baud rate to 9600 for 16 MHz clock -> BRR = 16000000 / 9600 = ~1666 = 0x0682
+    *pUSART2_BRR = 0x0682;
+
+    // Enable USART2, Transmitter and Receiver
+    *pUSART2_CR1 |= (1 << 13);  // UE: USART Enable
+    *pUSART2_CR1 |= (1 << 3);   // TE: Transmit Enable
+    *pUSART2_CR1 |= (1 << 2);   // RE: Receive Enable (good practice even if unused)
+}
+
+void delay()
+{
+    for (volatile uint32_t i = 0; i < 30000; i++);
+}
+
+void Uart_Write(int ch)
+{
+    // Wait until TXE (Transmit data register empty) is set
+    while (!(*pUSART2_SR & (1 << 7)));
+
+    // Write data to transmit register
+    *pUSART2_DR = (ch & 0xFF);  // Only lower 8 bits
+}
+
+// Redirect printf() output to USART2
+int __io_putchar(int ch)
+{
+    Uart_Write(ch);
+    return ch;
+}
+
+int main(void)
+{
+    USART_init();
+
+    while (1)
+    {
+        printf("Hello, I am Embedded Engineer 123!\r\n");
+        delay();
+    }
+}
